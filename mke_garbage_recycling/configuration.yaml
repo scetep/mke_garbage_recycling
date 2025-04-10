@@ -1,0 +1,8 @@
+sensor:
+  - platform: mke_garbage_recycling
+    name: "My Home"  # Optional: Prefix for sensor names (e.g., "My Home Garbage Pickup")
+    address_number: ""
+    street_direction: ""  
+    street_name: ""
+    street_suffix: ""
+
