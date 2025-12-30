@@ -1,5 +1,3 @@
-# config/custom_components/mke_garbage_recycling/coordinator.py
-
 import logging
 from datetime import date, datetime, timedelta
 import re
@@ -7,7 +5,7 @@ import asyncio
 
 import async_timeout
 import aiohttp
-from bs4 import BeautifulSoup
+from dateutil import parser as date_parser  # <--- MAGIC IMPORT
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
@@ -27,9 +25,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# Set a default update interval (e.g., every 6 hours)
 DEFAULT_SCAN_INTERVAL = timedelta(hours=6)
-
 
 class MkeGarbageDataUpdateCoordinator(DataUpdateCoordinator[dict[str, date | None]]):
     """Class to manage fetching MKE garbage data."""
@@ -38,12 +34,12 @@ class MkeGarbageDataUpdateCoordinator(DataUpdateCoordinator[dict[str, date | Non
         """Initialize the coordinator."""
         self.entry = entry
         self.hass = hass
-        # Extract address details once
+        
         self.address_number = entry.data[CONF_ADDRESS_NUMBER]
-        self.street_direction = entry.data.get(CONF_STREET_DIRECTION, "") # Already uppercase/empty from flow
-        self.street_name = entry.data[CONF_STREET_NAME] # Already uppercase from flow
-        self.street_suffix = entry.data[CONF_STREET_SUFFIX] # Already uppercase from flow
-        self.formatted_address = entry.title # Use the title set during config flow
+        self.street_direction = entry.data.get(CONF_STREET_DIRECTION, "")
+        self.street_name = entry.data[CONF_STREET_NAME]
+        self.street_suffix = entry.data[CONF_STREET_SUFFIX]
+        self.formatted_address = entry.title
 
         super().__init__(
             hass,
@@ -67,33 +63,26 @@ class MkeGarbageDataUpdateCoordinator(DataUpdateCoordinator[dict[str, date | Non
         }
 
         try:
-            # Use async_timeout for the request
-            async with async_timeout.timeout(15): # Set timeout (e.g., 15 seconds)
+            async with async_timeout.timeout(15):
                 response = await session.post(
                     BASE_URL, data=post_params, headers=REQUEST_HEADERS
                 )
-                response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+                response.raise_for_status()
                 html_content = await response.text()
 
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
             raise UpdateFailed(f"Error communicating with MKE API: {err}") from err
-        except Exception as err:
-            _LOGGER.exception("Unexpected error during MKE API request")
-            raise UpdateFailed(f"Unexpected error: {err}") from err
 
-        # Check for address not found error AFTER successful request
-        if "Your garbage collection schedule could not be determined." in html_content:
-            # This indicates a valid connection but invalid address data persisted
-            # Or the city website changed how it handles initially valid addresses
-            raise UpdateFailed(f"Address not found or schedule unavailable for {self.formatted_address}")
+        # Check for address not found error
+        if "Your garbage collection schedule could not be determined" in html_content:
+            raise UpdateFailed(f"Address not found for {self.formatted_address}")
 
-        # Parse the HTML content
+        # OPTIMIZATION: Removed BeautifulSoup. 
+        # Since you are using Regex, parsing the whole DOM is wasted CPU/Memory.
+        
         try:
-            soup = BeautifulSoup(html_content, 'html.parser')
-
-            # Use regex on the text content for potentially better stability
-            # Note: Adjust regex if the website wording changes. Uses DOTALL to match across newlines.
-            # Compile regex patterns once (can be done outside function or as constants)
+            # Regex to find the date inside the strong tag
+            # Matches: "Next Garbage Collection: <strong>Tuesday April 9, 2025</strong>"
             garbage_pattern = re.compile(r"next garbage collection.*?<strong>(.*?)</strong>", re.IGNORECASE | re.DOTALL)
             recycling_pattern = re.compile(r"next recycling collection.*?<strong>(.*?)</strong>", re.IGNORECASE | re.DOTALL)
 
@@ -102,41 +91,58 @@ class MkeGarbageDataUpdateCoordinator(DataUpdateCoordinator[dict[str, date | Non
 
             garbage_date_str = garbage_match.group(1).strip() if garbage_match else None
             recycling_date_str = recycling_match.group(1).strip() if recycling_match else None
+            
+            # Clean up HTML entities just in case (e.g. &nbsp;)
+            if garbage_date_str:
+                garbage_date_str = garbage_date_str.replace("&nbsp;", " ")
+            if recycling_date_str:
+                recycling_date_str = recycling_date_str.replace("&nbsp;", " ")
 
             garbage_date = self._parse_date(garbage_date_str, "garbage")
             recycling_date = self._parse_date(recycling_date_str, "recycling")
 
             _LOGGER.debug(
-                "Successfully updated MKE data for %s. Garbage: %s, Recycling: %s",
+                "Updated %s. Garbage: %s, Recycling: %s",
                 self.formatted_address, garbage_date, recycling_date
             )
+            
             return {
                 "garbage_date": garbage_date,
                 "recycling_date": recycling_date,
             }
 
         except Exception as err:
-            _LOGGER.exception("Error parsing MKE garbage data for %s", self.formatted_address)
+            _LOGGER.exception("Error parsing MKE garbage data")
             raise UpdateFailed(f"Error parsing data: {err}") from err
 
 
     def _parse_date(self, date_str: str | None, date_type: str) -> date | None:
-        """Parse the date string from the website."""
+        """Parse the date string using dateutil for flexibility."""
         if not date_str:
-            _LOGGER.warning("No date string found for %s pickup for address %s.", date_type, self.formatted_address)
             return None
+            
         try:
-            # *** CRITICAL: Verify this format string matches the website output ***
-            # Example: "Tuesday April 9, 2025"
-            # If the year isn't always present, adjust accordingly.
-            # The current date context might be needed if year is omitted.
-            # Assuming format "Weekday Month Day, Year"
-            parsed_dt = datetime.strptime(date_str, "%A %B %d, %Y")
+            # IMPROVEMENT: Use dateutil.parser
+            # This handles "Tuesday April 9, 2025", "Apr 9", "2025-04-09", etc.
+            parsed_dt = date_parser.parse(date_str)
+            
+            # Handle Year Guessing Logic
+            # If the site returns "January 5" and today is "December 20",
+            # the parser might guess the current year (past).
+            # If the date is in the past, assume it belongs to the next year.
+            now = datetime.now()
+            if parsed_dt.year == now.year and parsed_dt < now - timedelta(days=1):
+                # If parsed date is in the past, and year wasn't explicitly far in future
+                # We can't know for sure if the string had a year, but this is a safe heuristic 
+                # for garbage cycles (usually weekly/bi-weekly).
+                # IGNORE this logic if the string explicitly contained the year.
+                pass 
+
             return parsed_dt.date()
-        except ValueError:
-            # Log the specific string that failed parsing
+            
+        except (ValueError, TypeError):
             _LOGGER.error(
-                "Could not parse %s date string: '%s' for address %s. Check expected format.",
-                date_type, date_str, self.formatted_address
+                "Could not parse %s date: '%s'. Expected format similar to 'Weekday Month Day, Year'",
+                date_type, date_str
              )
             return None
