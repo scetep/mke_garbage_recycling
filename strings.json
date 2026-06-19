@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Milwaukee Garbage and Recycling",
+        "description": "Enter your address details to fetch garbage and recycling schedules from the City of Milwaukee.",
+        "data": {
+          "address_number": "House/Address Number",
+          "street_direction": "Street Direction (N, S, E, W)",
+          "street_name": "Street Name (e.g. SMITH, WISCONSIN)",
+          "street_suffix": "Street Suffix (e.g. ST, AV)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the City of Milwaukee service. Please try again later.",
+      "address_not_found": "The address could not be found. Please verify the address details.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This address is already configured."
+    }
+  }
+}

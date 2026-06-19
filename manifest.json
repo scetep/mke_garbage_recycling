@@ -1,0 +1,11 @@
+{
+  "domain": "mke_garbage_recycling",
+  "name": "Milwaukee Garbage and Recycling",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [],
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": ["beautifulsoup4==4.14.3"],
+  "version": "1.1.0"
+}

@@ -1,0 +1,19 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Home Assistant local runtime artifacts
+.HA_VERSION
+.storage/
+*.log
+configuration.yaml.original
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# OS metadata
+.DS_Store
+Thumbs.db
