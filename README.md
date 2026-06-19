@@ -4,6 +4,8 @@ Home Assistant custom integration to scrape and display the upcoming garbage and
 
 This integration uses the official City of Milwaukee Department of Public Works (DPW) address-based lookup service.
 
+![Milwaukee Garbage and Recycling Sensors](Pictures/Integration-Sensors.png)
+
 ---
 
 ## Architecture
@@ -65,7 +67,12 @@ Version status can be checked in [manifest.json](custom_components/mke_garbage_r
 1. Copy the `mke_garbage_recycling` folder into your Home Assistant `custom_components` directory.
 2. Restart Home Assistant.
 3. In Home Assistant, go to **Settings** -> **Devices & Services** -> **Add Integration**.
+   
+   ![Search and Add Integration](Pictures/Integration-Add-Service.png)
+
 4. Search for **Milwaukee Garbage and Recycling** and fill in your address details.
+
+   ![Configure Address Details](Pictures/Integration-AddressForm.png)
 
 ---
 
