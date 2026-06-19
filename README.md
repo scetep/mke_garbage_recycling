@@ -56,7 +56,7 @@ This integration is tracked and version-controlled via Git. Versions follow [Sem
   - `1.0.2` (Modernized to `entry.runtime_data`, flexible scrapers, custom translation files, and optional suffix fields).
   - `1.0.1` (Legacy layout utilizing outdated coordinator setups and strict date scrapers).
 
-Version status can be checked in [manifest.json](manifest.json) under the `"version"` key.
+Version status can be checked in [manifest.json](custom_components/mke_garbage_recycling/manifest.json) under the `"version"` key.
 
 ---
 
