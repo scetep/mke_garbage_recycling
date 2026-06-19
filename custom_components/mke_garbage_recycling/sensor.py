@@ -14,6 +14,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import MkeConfigEntry
 from .const import DOMAIN, SENSOR_GARBAGE, SENSOR_RECYCLING, SENSOR_CLEAN_GREEN
 from .coordinator import MkeGarbageDataUpdateCoordinator
+from .sources.local_calculated import CITIES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,11 +36,11 @@ async def async_setup_entry(
         MkeDaysUntilSensor(coordinator, entry, f"{SENSOR_CLEAN_GREEN} Days"),
     ]
     async_add_entities(sensors_to_add)
-    _LOGGER.debug("Added MKE Garbage sensors for address: %s", entry.title)
+    _LOGGER.debug("Added waste collection sensors for: %s", entry.title)
 
 
 class MkePickupSensor(CoordinatorEntity[MkeGarbageDataUpdateCoordinator], SensorEntity):
-    """Representation of a MKE Garbage/Recycling/Clean-Green Date Sensor."""
+    """Representation of a Garbage/Recycling/Clean-Green Date Sensor."""
 
     _attr_has_entity_name = True
 
@@ -66,10 +67,13 @@ class MkePickupSensor(CoordinatorEntity[MkeGarbageDataUpdateCoordinator], Sensor
         self._attr_unique_id = f"{entry.entry_id}_{sensor_type.lower().replace(' ', '_')}"
         self._attr_name = sensor_type
 
+        city = entry.data.get("city", "milwaukee")
+        city_name = "Milwaukee" if city == "milwaukee" else CITIES.get(city, city.replace("_", " ").title())
+
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": entry.title,
-            "manufacturer": "City of Milwaukee Data",
+            "manufacturer": f"{city_name} Collection Data",
             "model": "Collection Schedule",
             "entry_type": "service",
         }
@@ -109,10 +113,13 @@ class MkeDaysUntilSensor(CoordinatorEntity[MkeGarbageDataUpdateCoordinator], Sen
         self._attr_unique_id = f"{entry.entry_id}_{sensor_type.lower().replace(' ', '_')}"
         self._attr_name = sensor_type
 
+        city = entry.data.get("city", "milwaukee")
+        city_name = "Milwaukee" if city == "milwaukee" else CITIES.get(city, city.replace("_", " ").title())
+
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": entry.title,
-            "manufacturer": "City of Milwaukee Data",
+            "manufacturer": f"{city_name} Collection Data",
             "model": "Collection Schedule",
             "entry_type": "service",
         }

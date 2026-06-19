@@ -10,6 +10,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import MkeConfigEntry
 from .const import DOMAIN
 from .coordinator import MkeGarbageDataUpdateCoordinator
+from .sources.local_calculated import CITIES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ async def async_setup_entry(
 
 
 class MkeCollectionCalendar(CalendarEntity):
-    """Representation of the Milwaukee Collection Calendar."""
+    """Representation of the collection calendar."""
 
     _attr_has_entity_name = True
 
@@ -39,10 +40,14 @@ class MkeCollectionCalendar(CalendarEntity):
         self.entry = entry
         self._attr_unique_id = f"{entry.entry_id}_calendar"
         self._attr_name = "Collection Calendar"
+
+        city = entry.data.get("city", "milwaukee")
+        self.city_name = "Milwaukee" if city == "milwaukee" else CITIES.get(city, city.replace("_", " ").title())
+
         self._attr_device_info = {
             "identifiers": {(DOMAIN, entry.entry_id)},
             "name": entry.title,
-            "manufacturer": "City of Milwaukee Data",
+            "manufacturer": f"{self.city_name} Collection Data",
             "model": "Collection Schedule",
             "entry_type": "service",
         }
@@ -65,12 +70,10 @@ class MkeCollectionCalendar(CalendarEntity):
         self, hass: HomeAssistant, start_date: datetime, end_date: datetime
     ) -> list[CalendarEvent]:
         """Return calendar events within a datetime range."""
-        # start_date and end_date are timezone-aware datetimes
         start_d = start_date.date()
         end_d = end_date.date()
 
         events = self._get_events_list()
-        # Filter events within the range [start_d, end_d]
         return [e for e in events if start_d <= e.start <= end_d]
 
     def _get_events_list(self) -> list[CalendarEvent]:
@@ -79,7 +82,6 @@ class MkeCollectionCalendar(CalendarEntity):
         if not self.coordinator.data:
             return events
 
-        # Extract dates
         garbage_date = self.coordinator.data.get("garbage_date")
         recycling_date = self.coordinator.data.get("recycling_date")
         clean_green_date = self.coordinator.data.get("clean_green_date")
@@ -90,7 +92,7 @@ class MkeCollectionCalendar(CalendarEntity):
                     summary="Garbage Pickup",
                     start=garbage_date,
                     end=garbage_date + timedelta(days=1),
-                    description="Scheduled garbage collection by City of Milwaukee.",
+                    description=f"Scheduled garbage collection by {self.city_name}.",
                 )
             )
 
@@ -100,7 +102,7 @@ class MkeCollectionCalendar(CalendarEntity):
                     summary="Recycling Pickup",
                     start=recycling_date,
                     end=recycling_date + timedelta(days=1),
-                    description="Scheduled recycling collection by City of Milwaukee.",
+                    description=f"Scheduled recycling collection by {self.city_name}.",
                 )
             )
 
@@ -110,7 +112,7 @@ class MkeCollectionCalendar(CalendarEntity):
                     summary="Clean & Green Pickup",
                     start=clean_green_date,
                     end=clean_green_date + timedelta(days=1),
-                    description="Clean & Green neighborhood cleanup day.",
+                    description=f"Clean & Green neighborhood cleanup day in {self.city_name}.",
                 )
             )
 

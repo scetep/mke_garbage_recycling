@@ -2,23 +2,39 @@
   "config": {
     "step": {
       "user": {
-        "title": "Milwaukee Garbage and Recycling",
-        "description": "Enter your address details to fetch garbage and recycling schedules from the City of Milwaukee.",
+        "title": "Select Municipality",
+        "description": "Select your municipality in Milwaukee County.",
+        "data": {
+          "city": "Municipality"
+        }
+      },
+      "milwaukee": {
+        "title": "City of Milwaukee Details",
+        "description": "Enter your address details to fetch schedules from the City of Milwaukee.",
         "data": {
           "address_number": "House/Address Number",
           "street_direction": "Street Direction (N, S, E, W)",
           "street_name": "Street Name (e.g. SMITH, WISCONSIN)",
           "street_suffix": "Street Suffix (e.g. ST, AV)"
         }
+      },
+      "local_calculated": {
+        "title": "Suburban Collection Details",
+        "description": "Configure your local waste and recycling pickup schedule.",
+        "data": {
+          "refuse_day": "Garbage Collection Day",
+          "recycling_frequency": "Recycling Schedule",
+          "clean_green_date": "Clean & Green Date (MM-DD, e.g. 05-18)"
+        }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the City of Milwaukee service. Please try again later.",
+      "cannot_connect": "Failed to connect to the lookup service. Please try again later.",
       "address_not_found": "The address could not be found. Please verify the address details.",
       "unknown": "An unexpected error occurred."
     },
     "abort": {
-      "already_configured": "This address is already configured."
+      "already_configured": "This configuration is already active."
     }
   }
 }

@@ -16,12 +16,7 @@ async def async_get_config_entry_diagnostics(
     return {
         "config_entry": {
             "title": entry.title,
-            "data": {
-                "address_number": entry.data.get("address_number"),
-                "street_direction": entry.data.get("street_direction"),
-                "street_name": entry.data.get("street_name"),
-                "street_suffix": entry.data.get("street_suffix"),
-            },
+            "data": dict(entry.data),
         },
         "coordinator_data": coordinator.data,
     }
