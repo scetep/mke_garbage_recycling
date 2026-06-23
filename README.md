@@ -1,76 +1,71 @@
-# Milwaukee Garbage and Recycling Integration for Home Assistant
+# Milwaukee County Waste Collection Integration for Home Assistant
 
-Home Assistant custom integration to scrape and display the upcoming garbage and recycling pickup dates for addresses in the City of Milwaukee, WI.
+A modern Home Assistant custom integration to track upcoming garbage, recycling, and Clean & Green collection schedules across **all municipalities in Milwaukee County, WI** (including Milwaukee, West Allis, Wauwatosa, Shorewood, Glendale, Oak Creek, Franklin, and more).
 
-This integration uses the official City of Milwaukee Department of Public Works (DPW) address-based lookup service.
+This integration supports both automated address-based lookup (for the City of Milwaukee) and a robust, holiday-aware local calculation engine (for other suburbs).
 
-![Milwaukee Garbage and Recycling Sensors](Pictures/Integration-Sensors.png)
+![Milwaukee County Waste Sensors](Pictures/Integration-Sensors.png)
 
 ---
 
-## Architecture
+## Architecture & Design
 
-This integration follows modern Home Assistant standards and patterns:
+This integration uses a **Strategy / Provider Pattern** to handle different collection schedules across suburbs cleanly:
 
 ```mermaid
 graph TD
-    A[Config Flow] -->|Configure Address| B[__init__.py]
-    B -->|Instantiate Coordinator & First Fetch| C[Data Update Coordinator]
-    C -->|Fetch HTML via HTTP POST| D[Milwaukee DPW Site]
-    C -->|Parse dates & calculate weekdays| E[Platforms]
-    E -->|sensor.py| F[Date & Countdown Sensors]
-    E -->|calendar.py| G[Calendar Entity]
-    E -->|diagnostics.py| H[Diagnostics Exporter]
+    A[Config Flow] -->|1. Select City| B[__init__.py]
+    B -->|2. Instantiate Coordinator| C[Data Update Coordinator]
+    C -->|3. Load Strategy| D{City Strategy}
+    D -->|Milwaukee| E[Milwaukee Scraper]
+    D -->|Suburbs| F[Local Calculated Engine]
+    E -->|Scrape DPW Website| G[DPW API]
+    F -->|Weekly/Biweekly Rules| H[Date Calculations]
+    C -->|4. Populate Data| I[Platforms]
+    I -->|sensor.py| J[Date & Countdown Sensors]
+    I -->|calendar.py| K[Calendar Entity]
+    I -->|diagnostics.py| L[Diagnostics Exporter]
 ```
 
 1. **Config Flow (`config_flow.py`)**: 
-   Provides a clean user interface to enter the street number, direction, name, and suffix. Suffixes are optional.
+   A multi-step configuration wizard. Step 1 asks you to select your municipality. Step 2 presents fields tailored to that city (e.g., street address details for Milwaukee; collection weekday and recycling route/frequency for other suburbs).
    
-2. **Integration Lifecycle (`__init__.py`)**: 
-   Instantiates the `DataUpdateCoordinator`, performs the first data fetch synchronously on load to ensure entities are populated immediately, and stores the coordinator in `entry.runtime_data` (Home Assistant 2024.4+ standard).
-   
-3. **Data Update Coordinator (`coordinator.py`)**: 
-   Manages fetching data from the Milwaukee DPW website via asynchronous HTTP POST requests using the `aiohttp` client. It uses a flexible regex parser to extract date strings for garbage, recycling, and Clean & Green pickups. It dynamically calculates the next calendar date for weekday-only schedules.
-   
-4. **Sensor Platform (`sensor.py`)**: 
+2. **Strategy Providers (`sources/`)**:
+   - **Milwaukee Scraper (`sources/milwaukee.py`)**: Uses asynchronous HTTP POST requests to scrape the official City of Milwaukee DPW address servlet.
+   - **Local Calculated Engine (`sources/local_calculated.py`)**: A rule-based scheduler for suburbs. It computes garbage and recycling pickup dates dynamically (weekly or biweekly Route 1/Route 2).
+   - **Observed Holiday Shifts**: The calculated engine automatically shifts pickup dates by `+1` day if a major US holiday (New Year's, Memorial Day, Independence Day, Labor Day, Thanksgiving, or Christmas) falls on or before your collection day in the same week (supporting weekend-observed rules).
+
+3. **Sensor Platform (`sensor.py`)**: 
    Instantiates date sensors and days-until countdown sensors:
    - `sensor.garbage_pickup` & `sensor.garbage_pickup_days`
    - `sensor.recycling_pickup` & `sensor.recycling_pickup_days`
    - `sensor.clean_and_green_pickup` & `sensor.clean_and_green_pickup_days`
 
-5. **Calendar Platform (`calendar.py`)**:
+4. **Calendar Platform (`calendar.py`)**:
    Exposes a calendar entity (`calendar.collection_calendar`) displaying upcoming pickups as all-day events on your Home Assistant dashboard calendar.
-
-6. **Diagnostics Platform (`diagnostics.py`)**:
-   Allows secure download of anonymized configuration and state diagnostics via the Home Assistant UI.
-
-7. **HACS Configuration (`hacs.json`)**:
-   Declares HACS compatibility metadata for easy custom repository installation.
-
----
-
-## Version Control & Release Tracking
-
-This integration is tracked and version-controlled via Git. Versions follow [Semantic Versioning (SemVer)](https://semver.org/):
-
-* **Current Stable Version**: `1.1.0` (Added Clean & Green, Days-Until sensors, Home Assistant Calendar integration, Diagnostics exporter, and HACS configuration).
-* **Previous Versions**:
-  - `1.0.2` (Modernized to `entry.runtime_data`, flexible scrapers, custom translation files, and optional suffix fields).
-  - `1.0.1` (Legacy layout utilizing outdated coordinator setups and strict date scrapers).
-
-Version status can be checked in [manifest.json](custom_components/mke_garbage_recycling/manifest.json) under the `"version"` key.
 
 ---
 
 ## Installation & Setup
 
-1. Copy the `mke_garbage_recycling` folder into your Home Assistant `custom_components` directory.
+### Option 1: Install via HACS (Recommended)
+1. Open **HACS** in Home Assistant.
+2. Click the three dots in the top-right corner and select **Custom repositories**.
+3. Add your repository URL: `https://github.com/scetep/mke_garbage_recycling`
+4. Choose **Integration** as the category and click **Add**.
+5. Find the integration in HACS, download it, and restart Home Assistant.
+
+### Option 2: Manual Installation
+1. Copy the `mke_garbage_recycling` folder from `custom_components/` into your Home Assistant `config/custom_components/` directory.
 2. Restart Home Assistant.
-3. In Home Assistant, go to **Settings** -> **Devices & Services** -> **Add Integration**.
+
+### Setup Configuration
+1. Go to **Settings** -> **Devices & Services** -> **Add Integration**.
    
    ![Search and Add Integration](Pictures/Integration-Add-Service.png)
 
-4. Search for **Milwaukee Garbage and Recycling** and fill in your address details.
+2. Search for **Milwaukee Garbage and Recycling** and select your city.
+3. Configure your address details or collection day:
 
    ![Configure Address Details](Pictures/Integration-AddressForm.png)
 
@@ -79,8 +74,8 @@ Version status can be checked in [manifest.json](custom_components/mke_garbage_r
 ## Developer Notes
 
 ### Running Verification Tests
-A mock environment verification script is included to test the parsing and scraping logic without requiring a running Home Assistant instance:
+A mock environment verification script is included in the scratch folder to test the parsing, scraping, and holiday shift logic:
 ```bash
-python3 verify_integration.py
+python3 verify_multi_city.py
 ```
-This script validates date extraction against residential HTML layouts and apartment HTML layouts.
+This script validates date extraction against residential/apartment layouts and asserts that holiday adjustments shift pickup days accurately.
