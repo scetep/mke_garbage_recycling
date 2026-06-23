@@ -145,11 +145,19 @@ class LocalCalculatedSource(BaseWasteSource):
         return candidate_date
 
     def _get_major_holidays(self, year: int) -> list[date]:
-        """Calculate dates for major US holidays that delay waste collection."""
+        """Calculate dates for major US holidays (including observed dates) that delay waste collection."""
         holidays = []
 
+        def _get_observed(holiday_date: date) -> date:
+            """Return the observed weekday for a holiday if it falls on a weekend."""
+            if holiday_date.weekday() == 6:  # Sunday -> Observed on Monday
+                return holiday_date + timedelta(days=1)
+            elif holiday_date.weekday() == 5:  # Saturday -> Observed on Friday
+                return holiday_date - timedelta(days=1)
+            return holiday_date
+
         # 1. New Year's Day (Jan 1)
-        holidays.append(date(year, 1, 1))
+        holidays.append(_get_observed(date(year, 1, 1)))
 
         # 2. Memorial Day (Last Monday of May)
         # Start at May 31 and walk back to the last Monday
@@ -159,7 +167,7 @@ class LocalCalculatedSource(BaseWasteSource):
         holidays.append(memorial_day)
 
         # 3. Independence Day (July 4)
-        holidays.append(date(year, 7, 4))
+        holidays.append(_get_observed(date(year, 7, 4)))
 
         # 4. Labor Day (First Monday of September)
         # Start at Sept 1 and walk forward to the first Monday
@@ -181,6 +189,7 @@ class LocalCalculatedSource(BaseWasteSource):
         holidays.append(thanksgiving)
 
         # 6. Christmas Day (Dec 25)
-        holidays.append(date(year, 12, 25))
+        holidays.append(_get_observed(date(year, 12, 25)))
 
         return holidays
+
